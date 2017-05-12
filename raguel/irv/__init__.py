@@ -44,14 +44,26 @@ class IrvMethod(VotingMethod):
                 counts[resp.candidates[0]] += 1
 
         # FIXME: Ties in the final round result in undefined behavior
+        last_counts = None
 
         # TODO: Add support for specifying an alternate cutoff than 50%+1
         # While the most common candidate hasn't received more than half the votes
+        round = 0
         while len(winners) < question.seats and len(winners) + len(eliminated) != len(question.candidates):
             while counts.most_common()[0][1] < int(sum(counts.values())/(question.seats+1))+1:
+                round += 1
+                print()
+                print("========================")
                 lowest = counts.most_common()[-1][0]
-                print(counts)
+
+                print("Round {} totals:".format(round))
+                for name, count in counts.most_common():
+                    print(" * {:<20}: {:<2} ({:.2%})".format(name, count, count / sum(counts.values())))
+                print()
                 print("Eliminating {lowest}".format(**locals()))
+                print()
+
+                last_counts = Counter(counts)
 
                 counts.clear()
                 eliminated.add(lowest)
@@ -64,6 +76,30 @@ class IrvMethod(VotingMethod):
                         if candidate not in winners:
                             counts[candidate] += 1
                         break
+
+                if last_counts:
+                    diff = Counter(counts)
+                    diff.subtract(last_counts)
+
+                    last_total = sum(last_counts.values())
+                    cur_total = sum(counts.values())
+
+                    print("Redistributions:")
+                    for name, count in diff.most_common():
+                        if count > 0:
+                            print(" * {:<20}: {:<+4} ({})".format(name, count, counts[name]))
+
+                    if last_total != cur_total:
+                        print(" * Discarded           :  {:}".format(last_total-cur_total))
+
             winners.add(counts.most_common()[0][1])
+
+            print()
+            print("========================")
+            lowest = counts.most_common()[-1][0]
+
+            print("Final Totals:".format(round))
+            for name, count in counts.most_common():
+                print(" * {:<20}: {:<2} ({:.2%})".format(name, count, count / sum(counts.values())))
 
         return counts.most_common()[:question.seats]
